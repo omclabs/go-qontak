@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,8 @@ import (
 	"strings"
 	"time"
 )
+
+var errMessage string
 
 type CrmRepository interface {
 	GetParam(ctx context.Context) qontak_web.CrmParams
@@ -59,7 +62,8 @@ func (repository *CrmRepositoryImpl) GetContact(ctx context.Context, request qon
 
 	byteData, err := json.Marshal(crmContactData.Response)
 	if err != nil {
-		return crmContacts, helpers.GetErrInternalServer()
+		errMessage = helpers.MakeErrorMessage(500, err.Error())
+		return crmContacts, errors.New(errMessage)
 	}
 
 	json.Unmarshal(byteData, &crmContacts)
@@ -83,7 +87,8 @@ func (repository *CrmRepositoryImpl) GetContactById(ctx context.Context, id int,
 
 	byteData, err := json.Marshal(crmDataRequest.Response)
 	if err != nil {
-		return crmContacts, helpers.GetErrInternalServer()
+		errMessage = helpers.MakeErrorMessage(500, err.Error())
+		return crmContacts, errors.New(errMessage)
 	}
 
 	json.Unmarshal(byteData, &crmContacts)
@@ -103,7 +108,8 @@ func (repository *CrmRepositoryImpl) CreateContact(ctx context.Context, request 
 
 	err = json.NewEncoder(&payload).Encode(request)
 	if err != nil {
-		return crmContacts, helpers.GetErrInternalServer()
+		errMessage = helpers.MakeErrorMessage(500, err.Error())
+		return crmContacts, errors.New(errMessage)
 	}
 
 	CrmContactsData, err := sendDataRequest(url, method, accessToken, &payload, client)
@@ -113,7 +119,8 @@ func (repository *CrmRepositoryImpl) CreateContact(ctx context.Context, request 
 
 	byteData, err := json.Marshal(CrmContactsData.Response)
 	if err != nil {
-		return crmContacts, helpers.GetErrInternalServer()
+		errMessage = helpers.MakeErrorMessage(500, err.Error())
+		return crmContacts, errors.New(errMessage)
 	}
 
 	json.Unmarshal(byteData, &crmContacts)
@@ -132,7 +139,8 @@ func (repository *CrmRepositoryImpl) UpdateContact(ctx context.Context, id int, 
 
 	err = json.NewEncoder(&payload).Encode(request)
 	if err != nil {
-		return helpers.GetErrInternalServer()
+		errMessage = helpers.MakeErrorMessage(500, err.Error())
+		return errors.New(errMessage)
 	}
 
 	_, err = sendDataRequest(url, method, accessToken, &payload, client)
@@ -162,7 +170,7 @@ func (repository *CrmRepositoryImpl) DeleteContact(ctx context.Context, id int, 
 func getToken(client *http.Client) (string, error) {
 	fileName := "./files/crm_auth.json"
 	var token string = ""
-	if helpers.CheckJsonFileExists(fileName) {
+	if helpers.CheckDirOrFileExists(fileName) {
 		file := helpers.ReadJsonFile(fileName)
 		jsonData := qontak_web.CrmAuth{}
 
@@ -192,6 +200,7 @@ func getToken(client *http.Client) (string, error) {
 
 func authUser(client *http.Client) (string, error) {
 	accessToken := ""
+
 	url := os.Getenv("QONTAK_CRM_BASE_URL") + "/oauth/token"
 	method := "POST"
 	jsonString := fmt.Sprintf(`{"grant_type": "%s","username": "%s","password": "%s"}`,
@@ -199,12 +208,14 @@ func authUser(client *http.Client) (string, error) {
 	payload := strings.NewReader(jsonString)
 	result, err := sendAuthRequest(url, method, payload, client)
 	if err != nil {
-		return accessToken, err
+		errMessage = helpers.MakeErrorMessage(500, err.Error())
+		return accessToken, errors.New(errMessage)
 	}
 
 	jsonAuth, err := json.Marshal(result)
 	if err != nil {
-		return accessToken, helpers.GetErrInternalServer()
+		errMessage = helpers.MakeErrorMessage(500, err.Error())
+		return accessToken, errors.New(errMessage)
 	}
 
 	helpers.WriteJsonFile("files", "crm_auth.json", true, string(jsonAuth))
@@ -214,20 +225,24 @@ func authUser(client *http.Client) (string, error) {
 
 func sendAuthRequest(url string, method string, payload io.Reader, client *http.Client) (qontak_web.CrmAuth, error) {
 	var crmAuth qontak_web.CrmAuth
+
 	request, err := http.NewRequest(method, url, payload)
 	if err != nil {
-		return crmAuth, helpers.GetErrInternalServer()
+		errMessage = helpers.MakeErrorMessage(500, err.Error())
+		return crmAuth, errors.New(errMessage)
 	}
 
 	request.Header.Set("Content-Type", "application/json")
 	response, err := client.Do(request)
 	if err != nil {
-		return crmAuth, helpers.GetErrInternalServer()
+		errMessage = helpers.MakeErrorMessage(500, err.Error())
+		return crmAuth, errors.New(errMessage)
 	}
 
 	defer response.Body.Close()
 	if response.StatusCode != 200 {
-		return crmAuth, helpers.MapHttpErrorCode(int(response.StatusCode))
+		errMessage := helpers.MakeErrorMessage(response.StatusCode, response.Status)
+		return crmAuth, errors.New(errMessage)
 	}
 
 	crmAuth.Code = response.StatusCode
@@ -238,28 +253,46 @@ func sendAuthRequest(url string, method string, payload io.Reader, client *http.
 
 func sendDataRequest(url string, method string, token string, payload io.Reader, client *http.Client) (qontak_web.CrmContactsData, error) {
 	var crmDataRequest qontak_web.CrmContactsData
+
 	request, err := http.NewRequest(method, url, payload)
 	if err != nil {
-		return crmDataRequest, helpers.GetErrInternalServer()
+		errMessage = helpers.MakeErrorMessage(500, err.Error())
+		return crmDataRequest, errors.New(errMessage)
 	}
 
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Authorization", "Bearer "+token)
 	response, err := client.Do(request)
 	if err != nil {
-		return crmDataRequest, helpers.GetErrInternalServer()
+		errMessage = helpers.MakeErrorMessage(500, err.Error())
+		return crmDataRequest, errors.New(errMessage)
 	}
 
 	defer response.Body.Close()
 	crmDataRequest.Code = response.StatusCode
 	crmDataRequest.Status = response.Status
 	json.NewDecoder(response.Body).Decode(&crmDataRequest)
+
 	if response.StatusCode != 200 {
-		return crmDataRequest, helpers.MapHttpErrorCode(int(response.StatusCode))
+		switch crmDataRequest.Meta.Status {
+		case 401:
+			errMessage = helpers.MakeErrorMessage(401, crmDataRequest.Error)
+			return crmDataRequest, errors.New(errMessage)
+		default:
+			errMessage = helpers.MakeErrorMessage(response.StatusCode, crmDataRequest.Meta.Message)
+			return crmDataRequest, errors.New(errMessage)
+		}
 	}
 
 	if crmDataRequest.Meta.Status != 200 {
-		return crmDataRequest, helpers.MapHttpErrorCode(int(crmDataRequest.Meta.Status))
+		switch crmDataRequest.Meta.Status {
+		case 401:
+			errMessage = helpers.MakeErrorMessage(401, crmDataRequest.Error)
+			return crmDataRequest, errors.New(errMessage)
+		default:
+			errMessage = helpers.MakeErrorMessage(crmDataRequest.Meta.Status, crmDataRequest.Meta.DeveloperMessage)
+			return crmDataRequest, errors.New(errMessage)
+		}
 	}
 
 	return crmDataRequest, nil

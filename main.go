@@ -1,21 +1,15 @@
 package main
 
 import (
-	"log"
 	"net/http"
-	config "omclabs/go-qontak/app/configs/database"
-	"omclabs/go-qontak/app/handlers/controllers"
 	"omclabs/go-qontak/app/handlers/controllers/qontak_controller"
-	"omclabs/go-qontak/app/handlers/exceptions"
+	"omclabs/go-qontak/app/handlers/middlewares"
 	"omclabs/go-qontak/app/helpers"
-	"omclabs/go-qontak/app/repositories"
 	"omclabs/go-qontak/app/repositories/qontak_repository"
-	"omclabs/go-qontak/app/services"
 	"omclabs/go-qontak/app/services/qontak_service"
 	"os"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 	"github.com/julienschmidt/httprouter"
@@ -23,33 +17,20 @@ import (
 
 func main() {
 	errEnv := godotenv.Load()
-	if errEnv != nil {
-		log.Fatal("Cant load env file, terminating")
-	}
+	helpers.PanicIfError(errEnv)
 
-	validate := validator.New()
-	db := config.NewMysqlConn()
+	// validate := validator.New()
+	// db := config.NewMysqlConn()
 
-	var client *http.Client
-	client = &http.Client{
+	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
-
-	categoryRepository := repositories.NewCategoryRepository()
-	categoryService := services.NewCategoryService(categoryRepository, db, validate)
-	categoryController := controllers.NewCategoryController(categoryService)
 
 	crmRepository := qontak_repository.NewCrmRepository()
 	crmService := qontak_service.NewCrmService(crmRepository, client)
 	crmController := qontak_controller.NewCrmController(crmService)
 
 	router := httprouter.New()
-
-	router.GET("/api/categories", categoryController.FindAll)
-	router.GET("/api/categories/:categoryId", categoryController.FindById)
-	router.POST("/api/categories", categoryController.Create)
-	router.PUT("/api/categories/:categoryId", categoryController.Update)
-	router.DELETE("/api/categories/:categoryId", categoryController.Delete)
 
 	router.GET("/api/crm/get-params", crmController.GetParam)
 	router.GET("/api/crm/contacts", crmController.GetContact)
@@ -59,14 +40,14 @@ func main() {
 	router.PUT("/api/crm/contacts/:id", crmController.UpdateContact)
 
 	router.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		panic(exceptions.NewNotFoundError("Page not found"))
+		panic(123)
 	})
-	router.PanicHandler = exceptions.ErrorHandler
+	router.PanicHandler = helpers.ErrorHandler
 
 	server := http.Server{
-		Addr: "localhost:" + os.Getenv("APP_PORT"),
-		// Handler: middleware.NewAuthMiddleware(router),
-		Handler: router,
+		Addr:    "localhost:" + os.Getenv("APP_PORT"),
+		Handler: middlewares.NewGeneralMiddleware(router),
+		// Handler: router,
 	}
 
 	err := server.ListenAndServe()

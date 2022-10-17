@@ -8,7 +8,7 @@ type ApiResponse struct {
 }
 
 type Error struct {
-	Code   int         `json:"code"`
-	Status string      `json:"status"`
-	Error  interface{} `json:"data,omitempty"`
+	Code   int    `json:"code"`
+	Status string `json:"status"`
+	Error  string `json:"error,omitempty"`
 }

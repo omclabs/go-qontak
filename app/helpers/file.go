@@ -7,15 +7,6 @@ import (
 )
 
 func WriteJsonFile(fileType string, fileName string, isTruncate bool, content string) {
-	// dateNow := time.Now().Format("20060102") //YmD
-	// path := "./logs/" + dateNow + "/api/" + className
-
-	// _, err := os.Stat(path)
-	// if os.IsNotExist(err) {
-	// 	err := os.MkdirAll(path, 0777)
-	// 	PanicIfError(err)
-	// }
-
 	filePath := "./files/" + fileName
 	files, err := os.OpenFile(filePath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0777)
 	PanicIfError(err)
@@ -31,7 +22,7 @@ func ReadJsonFile(fileName string) []byte {
 	return files
 }
 
-func CheckJsonFileExists(fileName string) bool {
+func CheckDirOrFileExists(fileName string) bool {
 	if _, err := os.Stat(fileName); errors.Is(err, os.ErrNotExist) {
 		return false
 	} else {
