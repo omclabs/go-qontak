@@ -1,17 +1,20 @@
 package qontak_controller
 
 import (
+	"encoding/json"
 	"net/http"
 	"omclabs/go-qontak/app/helpers"
 	"omclabs/go-qontak/app/models/web"
 	"omclabs/go-qontak/app/models/web/qontak_web"
 	"omclabs/go-qontak/app/services/qontak_service"
-	"strconv"
 
 	"github.com/julienschmidt/httprouter"
 )
 
 var myError web.Error
+var logRequest web.LogRequest
+var logResponse web.LogResponse
+var logError web.LogError
 
 type CrmController interface {
 	GetParam(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
@@ -41,7 +44,14 @@ func (controller *CrmControllerImpl) GetParam(writer http.ResponseWriter, reques
 		Data:   crmParams,
 	}
 
-	helpers.EventLogger(writer, request, nil, apiResponse)
+	logRequest.Url = request.RequestURI
+	logRequest.Header = request.Header
+	logRequest.Method = request.Method
+
+	logResponse.Header = writer.Header()
+	logResponse.Body = apiResponse
+
+	helpers.WriteLog("info", "event", "incoming request", logRequest, logResponse, logError)
 	helpers.WriteToResponseBody(writer, apiResponse)
 }
 
@@ -52,7 +62,7 @@ func (controller *CrmControllerImpl) GetContact(writer http.ResponseWriter, requ
 	helpers.ReadFromRequestBody(request, &getContactRequest)
 	contacts, err := controller.crmService.GetContact(request.Context(), getContactRequest)
 	if err != nil {
-		helpers.JsonToInterface(err.Error(), &myError)
+		json.Unmarshal([]byte(err.Error()), &myError)
 		writer.WriteHeader(myError.Code)
 		apiResponse.Code = myError.Code
 		apiResponse.Status = http.StatusText(myError.Code)
@@ -63,7 +73,16 @@ func (controller *CrmControllerImpl) GetContact(writer http.ResponseWriter, requ
 		apiResponse.Data = contacts
 	}
 
-	helpers.EventLogger(writer, request, nil, apiResponse)
+	logRequest.Url = request.RequestURI
+	logRequest.Header = request.Header
+	logRequest.Method = request.Method
+	logRequest.Payload = getContactRequest
+
+	logResponse.Header = writer.Header()
+	logResponse.Body = apiResponse
+	logResponse.Error = myError.Error
+
+	helpers.WriteLog("info", "event", "incoming request", logRequest, logResponse, logError)
 	helpers.WriteToResponseBody(writer, apiResponse)
 }
 
@@ -71,10 +90,9 @@ func (controller *CrmControllerImpl) GetContactById(writer http.ResponseWriter, 
 	var apiResponse web.ApiResponse
 
 	contactsId := params.ByName("id")
-	id, _ := strconv.Atoi(contactsId)
-	contacts, err := controller.crmService.GetContactById(request.Context(), id)
+	contacts, err := controller.crmService.GetContactById(request.Context(), contactsId)
 	if err != nil {
-		helpers.JsonToInterface(err.Error(), &myError)
+		json.Unmarshal([]byte(err.Error()), &myError)
 		writer.WriteHeader(myError.Code)
 		apiResponse.Code = myError.Code
 		apiResponse.Status = http.StatusText(myError.Code)
@@ -85,7 +103,15 @@ func (controller *CrmControllerImpl) GetContactById(writer http.ResponseWriter, 
 		apiResponse.Data = contacts
 	}
 
-	helpers.EventLogger(writer, request, nil, apiResponse)
+	logRequest.Url = request.RequestURI
+	logRequest.Header = request.Header
+	logRequest.Method = request.Method
+
+	logResponse.Header = writer.Header()
+	logResponse.Body = apiResponse
+	logResponse.Error = myError.Error
+
+	helpers.WriteLog("info", "event", "incoming request", logRequest, logResponse, logError)
 	helpers.WriteToResponseBody(writer, apiResponse)
 }
 
@@ -96,7 +122,7 @@ func (controller *CrmControllerImpl) CreateContact(writer http.ResponseWriter, r
 	helpers.ReadFromRequestBody(request, &crmCreateRequest)
 	contacts, err := controller.crmService.CreateContact(request.Context(), crmCreateRequest)
 	if err != nil {
-		helpers.JsonToInterface(err.Error(), &myError)
+		json.Unmarshal([]byte(err.Error()), &myError)
 		writer.WriteHeader(myError.Code)
 		apiResponse.Code = myError.Code
 		apiResponse.Status = http.StatusText(myError.Code)
@@ -107,7 +133,16 @@ func (controller *CrmControllerImpl) CreateContact(writer http.ResponseWriter, r
 		apiResponse.Data = contacts
 	}
 
-	helpers.EventLogger(writer, request, nil, apiResponse)
+	logRequest.Url = request.RequestURI
+	logRequest.Header = request.Header
+	logRequest.Method = request.Method
+	logRequest.Payload = crmCreateRequest
+
+	logResponse.Header = writer.Header()
+	logResponse.Body = apiResponse
+	logResponse.Error = myError.Error
+
+	helpers.WriteLog("info", "event", "incoming request", logRequest, logResponse, logError)
 	helpers.WriteToResponseBody(writer, apiResponse)
 }
 
@@ -116,12 +151,10 @@ func (controller *CrmControllerImpl) UpdateContact(writer http.ResponseWriter, r
 	var crmCreateRequest qontak_web.CrmCreateRequest
 
 	contactsId := params.ByName("id")
-	id, _ := strconv.Atoi(contactsId)
-
 	helpers.ReadFromRequestBody(request, &crmCreateRequest)
-	contacts, err := controller.crmService.UpdateContact(request.Context(), id, crmCreateRequest)
+	contacts, err := controller.crmService.UpdateContact(request.Context(), contactsId, crmCreateRequest)
 	if err != nil {
-		helpers.JsonToInterface(err.Error(), &myError)
+		json.Unmarshal([]byte(err.Error()), &myError)
 		writer.WriteHeader(myError.Code)
 		apiResponse.Code = myError.Code
 		apiResponse.Status = http.StatusText(myError.Code)
@@ -132,7 +165,16 @@ func (controller *CrmControllerImpl) UpdateContact(writer http.ResponseWriter, r
 		apiResponse.Data = contacts
 	}
 
-	helpers.EventLogger(writer, request, nil, apiResponse)
+	logRequest.Url = request.RequestURI
+	logRequest.Header = request.Header
+	logRequest.Method = request.Method
+	logRequest.Payload = crmCreateRequest
+
+	logResponse.Header = writer.Header()
+	logResponse.Body = apiResponse
+	logResponse.Error = myError.Error
+
+	helpers.WriteLog("info", "event", "incoming request", logRequest, logResponse, logError)
 	helpers.WriteToResponseBody(writer, apiResponse)
 }
 
@@ -140,11 +182,9 @@ func (controller *CrmControllerImpl) DeleteContact(writer http.ResponseWriter, r
 	var apiResponse web.ApiResponse
 
 	contactsId := params.ByName("id")
-	id, _ := strconv.Atoi(contactsId)
-
-	err := controller.crmService.DeleteContact(request.Context(), id)
+	err := controller.crmService.DeleteContact(request.Context(), contactsId)
 	if err != nil {
-		helpers.JsonToInterface(err.Error(), &myError)
+		json.Unmarshal([]byte(err.Error()), &myError)
 		writer.WriteHeader(myError.Code)
 		apiResponse.Code = myError.Code
 		apiResponse.Status = http.StatusText(myError.Code)
@@ -154,6 +194,14 @@ func (controller *CrmControllerImpl) DeleteContact(writer http.ResponseWriter, r
 		apiResponse.Status = "deleted"
 	}
 
-	helpers.EventLogger(writer, request, nil, apiResponse)
+	logRequest.Url = request.RequestURI
+	logRequest.Header = request.Header
+	logRequest.Method = request.Method
+
+	logResponse.Header = writer.Header()
+	logResponse.Body = apiResponse
+	logResponse.Error = myError.Error
+
+	helpers.WriteLog("info", "event", "incoming request", logRequest, logResponse, logError)
 	helpers.WriteToResponseBody(writer, apiResponse)
 }

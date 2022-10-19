@@ -12,3 +12,8 @@ type Error struct {
 	Status string `json:"status"`
 	Error  string `json:"error,omitempty"`
 }
+
+type Auth struct {
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+}
