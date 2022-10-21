@@ -13,6 +13,39 @@ var logError web.LogError
 var logRequest web.LogRequest
 var logResponse web.LogResponse
 
+type NotFoundError struct {
+	Error string
+}
+
+func NewNotFoundError() NotFoundError {
+	return NotFoundError{Error: "page not found"}
+}
+
+func notFoundError(writer http.ResponseWriter, request *http.Request, err interface{}) bool {
+	exception, ok := err.(NotFoundError)
+	if ok {
+		writer.Header().Set("Content-Type", "application/json")
+		writer.WriteHeader(http.StatusNotFound)
+
+		apiResponse := web.ApiResponse{
+			Code:   http.StatusNotFound,
+			Status: http.StatusText(http.StatusNotFound),
+			Error:  exception.Error,
+		}
+
+		_, file, line, _ := runtime.Caller(1)
+		logError.Caller = file + " line " + fmt.Sprint(line)
+		logError.ErrorDesc = exception.Error
+
+		WriteLog("error", "error", "info", logRequest, logResponse, logError)
+		WriteToResponseBody(writer, apiResponse)
+		return true
+	} else {
+		return false
+	}
+
+}
+
 // func validationErrors(writer http.ResponseWriter, request *http.Request, err interface{}) bool {
 // 	exception, ok := err.(validator.ValidationErrors)
 // 	if ok {
@@ -61,6 +94,10 @@ func ErrorHandler(writer http.ResponseWriter, request *http.Request, err interfa
 	// if validationErrors(writer, request, err) {
 	// 	return
 	// }
+
+	if notFoundError(writer, request, err) {
+		return
+	}
 
 	internalServerError(writer, request, err)
 }

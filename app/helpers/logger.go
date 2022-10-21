@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -16,7 +15,7 @@ func init() {
 		isPrettyPrint = false
 	}
 
-	log.SetFormatter(&logrus.JSONFormatter{
+	log.SetFormatter(&log.JSONFormatter{
 		PrettyPrint: isPrettyPrint,
 	})
 }
@@ -34,7 +33,7 @@ func Logger(level string, filename string, message string, loggerData web.Logger
 	files, _ := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0777)
 	defer files.Close()
 
-	objFields := StructToMap(loggerData)
+	objFields := MakeLogrusFields(loggerData)
 	writer := io.MultiWriter(os.Stdout, files)
 	log.SetOutput(writer)
 

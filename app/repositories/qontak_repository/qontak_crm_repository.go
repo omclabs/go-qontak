@@ -8,17 +8,10 @@ import (
 	"fmt"
 	"net/http"
 	"omclabs/go-qontak/app/helpers"
-	"omclabs/go-qontak/app/models/web"
 	"omclabs/go-qontak/app/models/web/qontak_web"
 	"os"
-	"strings"
 	"time"
 )
-
-var errMessage string
-var logError web.LogError
-var logRequest web.LogRequest
-var logResponse web.LogResponse
 
 type CrmRepository interface {
 	GetParam(ctx context.Context) qontak_web.CrmParams
@@ -49,7 +42,7 @@ func (repository *CrmRepositoryImpl) GetContact(ctx context.Context, request qon
 
 	url := os.Getenv("QONTAK_CRM_BASE_URL") + "/api/v3.1/contacts"
 	method := "GET"
-	accessToken, err := getToken(client)
+	accessToken, err := getCrmToken(client)
 	if err != nil {
 		return crmContacts, err
 	}
@@ -57,7 +50,7 @@ func (repository *CrmRepositoryImpl) GetContact(ctx context.Context, request qon
 	params := "?name=" + request.Name + "&email=" + request.Email + "&phone=" + request.Phone
 	url += params
 
-	crmContactData, err := sendDataRequest(url, method, accessToken, nil, client)
+	crmContactData, err := sendCrmDataRequest(url, method, accessToken, nil, client)
 	if err != nil {
 		return crmContacts, err
 	}
@@ -77,12 +70,12 @@ func (repository *CrmRepositoryImpl) GetContactById(ctx context.Context, id stri
 
 	url := os.Getenv("QONTAK_CRM_BASE_URL") + "/api/v3.1/contacts/" + id
 	method := "GET"
-	accessToken, err := getToken(client)
+	accessToken, err := getCrmToken(client)
 	if err != nil {
 		return crmContacts, err
 	}
 
-	crmDataRequest, err := sendDataRequest(url, method, accessToken, nil, client)
+	crmDataRequest, err := sendCrmDataRequest(url, method, accessToken, nil, client)
 	if err != nil {
 		return crmContacts, err
 	}
@@ -102,12 +95,12 @@ func (repository *CrmRepositoryImpl) CreateContact(ctx context.Context, request 
 
 	url := os.Getenv("QONTAK_CRM_BASE_URL") + "/api/v3.1/contacts"
 	method := "POST"
-	accessToken, err := getToken(client)
+	accessToken, err := getCrmToken(client)
 	if err != nil {
 		return crmContacts, err
 	}
 
-	CrmContactsData, err := sendDataRequest(url, method, accessToken, request, client)
+	CrmContactsData, err := sendCrmDataRequest(url, method, accessToken, request, client)
 	if err != nil {
 		return crmContacts, err
 	}
@@ -125,12 +118,12 @@ func (repository *CrmRepositoryImpl) CreateContact(ctx context.Context, request 
 func (repository *CrmRepositoryImpl) UpdateContact(ctx context.Context, id string, request qontak_web.CrmCreateRequest, client *http.Client) error {
 	url := os.Getenv("QONTAK_CRM_BASE_URL") + "/api/v3.1/contacts/" + id
 	method := "PUT"
-	accessToken, err := getToken(client)
+	accessToken, err := getCrmToken(client)
 	if err != nil {
 		return err
 	}
 
-	_, err = sendDataRequest(url, method, accessToken, request, client)
+	_, err = sendCrmDataRequest(url, method, accessToken, request, client)
 	if err != nil {
 		return err
 	}
@@ -141,12 +134,12 @@ func (repository *CrmRepositoryImpl) UpdateContact(ctx context.Context, id strin
 func (repository *CrmRepositoryImpl) DeleteContact(ctx context.Context, id string, client *http.Client) error {
 	url := os.Getenv("QONTAK_CRM_BASE_URL") + "/api/v3.1/contacts/" + id
 	method := "DELETE"
-	accessToken, err := getToken(client)
+	accessToken, err := getCrmToken(client)
 	if err != nil {
 		return err
 	}
 
-	_, err = sendDataRequest(url, method, accessToken, nil, client)
+	_, err = sendCrmDataRequest(url, method, accessToken, nil, client)
 	if err != nil {
 		return err
 	}
@@ -154,7 +147,7 @@ func (repository *CrmRepositoryImpl) DeleteContact(ctx context.Context, id strin
 	return nil
 }
 
-func getToken(client *http.Client) (string, error) {
+func getCrmToken(client *http.Client) (string, error) {
 	fileName := "./files/crm_auth.json"
 	var token string = ""
 	if helpers.CheckDirOrFileExists(fileName) {
@@ -166,7 +159,7 @@ func getToken(client *http.Client) (string, error) {
 		timeNow := time.Now().Unix()
 
 		if timeNow > int64(expiresIn) {
-			accessToken, err := authUser(client)
+			accessToken, err := authCrmUser(client)
 			if err != nil {
 				return accessToken, err
 			}
@@ -175,7 +168,7 @@ func getToken(client *http.Client) (string, error) {
 			token = jsonData.AccessToken
 		}
 	} else {
-		accessToken, err := authUser(client)
+		accessToken, err := authCrmUser(client)
 		if err != nil {
 			return accessToken, err
 		}
@@ -185,20 +178,21 @@ func getToken(client *http.Client) (string, error) {
 	return token, nil
 }
 
-func authUser(client *http.Client) (string, error) {
+func authCrmUser(client *http.Client) (string, error) {
 	accessToken := ""
 
 	url := os.Getenv("QONTAK_CRM_BASE_URL") + "/oauth/token"
 	method := "POST"
 	payload := fmt.Sprintf(`{"grant_type": "%s","username": "%s","password": "%s"}`,
 		os.Getenv("QONTAK_CRM_GRANT_TYPE"), os.Getenv("QONTAK_CRM_USERNAME"), os.Getenv("QONTAK_CRM_PASSWORD"))
+
 	result, err := sendAuthRequest(url, method, payload, client)
 	if err != nil {
-		errMessage = helpers.MakeErrorMessage(500, err.Error())
-		return accessToken, errors.New(errMessage)
+		return accessToken, err
 	}
 
 	jsonAuth, err := json.Marshal(result)
+	fmt.Println(jsonAuth)
 	if err != nil {
 		errMessage = helpers.MakeErrorMessage(500, err.Error())
 		return accessToken, errors.New(errMessage)
@@ -209,46 +203,7 @@ func authUser(client *http.Client) (string, error) {
 	return accessToken, nil
 }
 
-func sendAuthRequest(url string, method string, payload interface{}, client *http.Client) (qontak_web.CrmAuth, error) {
-	var crmAuth qontak_web.CrmAuth
-
-	body := strings.NewReader(fmt.Sprintf("%v", payload))
-	request, err := http.NewRequest(method, url, body)
-	if err != nil {
-		errMessage = helpers.MakeErrorMessage(500, err.Error())
-		return crmAuth, errors.New(errMessage)
-	}
-
-	request.Header.Set("Content-Type", "application/json")
-	response, err := client.Do(request)
-	if err != nil {
-		errMessage = helpers.MakeErrorMessage(500, err.Error())
-		return crmAuth, errors.New(errMessage)
-	}
-
-	crmAuth.Code = response.StatusCode
-	crmAuth.Status = response.Status
-	json.NewDecoder(response.Body).Decode(&crmAuth)
-	defer response.Body.Close()
-
-	logRequest.Url = url
-	logRequest.Header = request.Header
-	logRequest.Method = request.Method
-	logRequest.Payload = payload
-
-	logResponse.Header = response.Header
-	logResponse.Body = crmAuth
-
-	helpers.WriteLog("info", "external", "calling external service", logRequest, logResponse, logError)
-	if response.StatusCode != 200 {
-		errMessage := helpers.MakeErrorMessage(response.StatusCode, crmAuth.ErrorDescription)
-		return crmAuth, errors.New(errMessage)
-	}
-
-	return crmAuth, nil
-}
-
-func sendDataRequest(url string, method string, token string, payload interface{}, client *http.Client) (qontak_web.CrmContactsData, error) {
+func sendCrmDataRequest(url string, method string, token string, payload interface{}, client *http.Client) (qontak_web.CrmContactsData, error) {
 	var crmDataRequest qontak_web.CrmContactsData
 	var body bytes.Buffer
 
@@ -283,7 +238,7 @@ func sendDataRequest(url string, method string, token string, payload interface{
 
 	helpers.WriteLog("info", "external", "calling external service", logRequest, logResponse, logError)
 	if response.StatusCode != 200 {
-		switch crmDataRequest.Meta.Status {
+		switch response.StatusCode {
 		case 401:
 			errMessage = helpers.MakeErrorMessage(401, crmDataRequest.Error)
 			return crmDataRequest, errors.New(errMessage)

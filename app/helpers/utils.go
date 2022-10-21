@@ -3,11 +3,12 @@ package helpers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
-func ReadFromRequestBody(request *http.Request, result interface{}) {
-	decoder := json.NewDecoder(request.Body)
+func ReadFromRequestBody(requestBody io.ReadCloser, result interface{}) {
+	decoder := json.NewDecoder(requestBody)
 	decoder.Decode(result)
 	// PanicIfError(err)
 }
@@ -18,7 +19,7 @@ func WriteToResponseBody(writer http.ResponseWriter, response interface{}) {
 	// PanicIfError(err)
 }
 
-func StructToMap(origin interface{}) map[string]interface{} {
+func MakeLogrusFields(origin interface{}) map[string]interface{} {
 	var objResult map[string]interface{}
 	objJson, _ := json.Marshal(origin)
 	// PanicIfError(err)

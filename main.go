@@ -39,21 +39,34 @@ func main() {
 	crmService := qontak_service.NewCrmService(crmRepository, client)
 	crmController := qontak_controller.NewCrmController(crmService)
 
+	chatRepository := qontak_repository.NewChatRepository()
+	chatService := qontak_service.NewChatService(chatRepository, client)
+	chatController := qontak_controller.NewChatController(chatService)
+
 	router := httprouter.New()
 
-	router.GET("/api/crm/get-params", crmController.GetParam)
-	router.GET("/api/crm/contacts", crmController.GetContact)
-	router.GET("/api/crm/contacts/:id", crmController.GetContactById)
-	router.POST("/api/crm/contacts", crmController.CreateContact)
-	router.DELETE("/api/crm/contacts/:id", crmController.DeleteContact)
-	router.PUT("/api/crm/contacts/:id", crmController.UpdateContact)
+	router.GET("/api/v1/crm/get-params", crmController.GetParam)
+	router.GET("/api/v1/crm/contacts", crmController.GetContact)
+	router.POST("/api/v1/crm/contacts", crmController.CreateContact)
+	router.GET("/api/v1/crm/contacts/:contact_id", crmController.GetContactById)
+	router.PUT("/api/v1/crm/contacts/:contact_id", crmController.UpdateContact)
+	router.DELETE("/api/v1/crm/contacts/:contact_id", crmController.DeleteContact)
+
+	router.GET("/api/v1/omnichannel/wa-integrations", chatController.GetWhatsappIntegration)
+	router.GET("/api/v1/omnichannel/contact-list", chatController.GetContactList)
+	router.GET("/api/v1/omnichannel/wa-templates", chatController.GetWhatsappTemplates)
+	router.POST("/api/v1/omnichannel/validate-number", chatController.ValidateNumber)
+
+	// router.GET("/api/omnichannel/integrations", chatController.GetIntegrations)
+	// router.GET("/api/omnichannel/integrations/:channel", chatController.GetIntegrationsByChannel)
+	// router.GET("/api/omnichannel/contact-list", chatController.GetContactList)
 
 	router.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		panic(123)
+		panic(helpers.NewNotFoundError())
 	})
 	router.PanicHandler = helpers.ErrorHandler
 	server := http.Server{
-		Addr:    "localhost:" + os.Getenv("APP_PORT"),
+		Addr:    ":" + os.Getenv("APP_PORT"),
 		Handler: middlewares.NewGeneralMiddleware(router),
 		// Handler: router,
 	}

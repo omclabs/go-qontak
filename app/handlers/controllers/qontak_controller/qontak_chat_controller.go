@@ -11,56 +11,29 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-var myError web.Error
-var logRequest web.LogRequest
-var logResponse web.LogResponse
-var logError web.LogError
-
-type CrmController interface {
-	GetParam(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
-	GetContact(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
-	GetContactById(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
-	CreateContact(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
-	UpdateContact(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
-	DeleteContact(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
+type ChatController interface {
+	GetIntegrations(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
+	GetIntegrationsByChannel(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
+	GetWhatsappIntegration(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
+	GetWhatsappTemplates(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
+	GetContactList(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
+	ValidateNumber(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
 }
 
-type CrmControllerImpl struct {
-	crmService qontak_service.CrmService
+type ChatControllerImpl struct {
+	chatService qontak_service.ChatService
 }
 
-func NewCrmController(crmService qontak_service.CrmService) CrmController {
-	return &CrmControllerImpl{
-		crmService: crmService,
+func NewChatController(chatService qontak_service.ChatService) ChatController {
+	return &ChatControllerImpl{
+		chatService: chatService,
 	}
 }
 
-func (controller *CrmControllerImpl) GetParam(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	crmParams := controller.crmService.GetParam(request.Context())
-
-	apiResponse := web.ApiResponse{
-		Code:   http.StatusOK,
-		Status: http.StatusText(http.StatusOK),
-		Data:   crmParams,
-	}
-
-	logRequest.Url = request.RequestURI
-	logRequest.Header = request.Header
-	logRequest.Method = request.Method
-
-	logResponse.Header = writer.Header()
-	logResponse.Body = apiResponse
-
-	helpers.WriteLog("info", "event", "incoming request", logRequest, logResponse, logError)
-	helpers.WriteToResponseBody(writer, apiResponse)
-}
-
-func (controller *CrmControllerImpl) GetContact(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+func (controller *ChatControllerImpl) GetIntegrations(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	var apiResponse web.ApiResponse
-	var getContactRequest qontak_web.CrmGetContactRequest
 
-	helpers.ReadFromRequestBody(request.Body, &getContactRequest)
-	contacts, err := controller.crmService.GetContact(request.Context(), getContactRequest)
+	integrations, err := controller.chatService.GetIntegrations(request.Context())
 	if err != nil {
 		json.Unmarshal([]byte(err.Error()), &myError)
 		writer.WriteHeader(myError.Code)
@@ -70,37 +43,7 @@ func (controller *CrmControllerImpl) GetContact(writer http.ResponseWriter, requ
 	} else {
 		apiResponse.Code = http.StatusOK
 		apiResponse.Status = http.StatusText(http.StatusOK)
-		apiResponse.Data = contacts
-	}
-
-	logRequest.Url = request.RequestURI
-	logRequest.Header = request.Header
-	logRequest.Method = request.Method
-	logRequest.Payload = getContactRequest
-
-	logResponse.Header = writer.Header()
-	logResponse.Body = apiResponse
-	logResponse.Error = myError.Error
-
-	helpers.WriteLog("info", "event", "incoming request", logRequest, logResponse, logError)
-	helpers.WriteToResponseBody(writer, apiResponse)
-}
-
-func (controller *CrmControllerImpl) GetContactById(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	var apiResponse web.ApiResponse
-
-	contactsId := params.ByName("contact_id")
-	contacts, err := controller.crmService.GetContactById(request.Context(), contactsId)
-	if err != nil {
-		json.Unmarshal([]byte(err.Error()), &myError)
-		writer.WriteHeader(myError.Code)
-		apiResponse.Code = myError.Code
-		apiResponse.Status = http.StatusText(myError.Code)
-		apiResponse.Error = myError.Error
-	} else {
-		apiResponse.Code = http.StatusOK
-		apiResponse.Status = http.StatusText(http.StatusOK)
-		apiResponse.Data = contacts
+		apiResponse.Data = integrations
 	}
 
 	logRequest.Url = request.RequestURI
@@ -115,12 +58,11 @@ func (controller *CrmControllerImpl) GetContactById(writer http.ResponseWriter, 
 	helpers.WriteToResponseBody(writer, apiResponse)
 }
 
-func (controller *CrmControllerImpl) CreateContact(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+func (controller *ChatControllerImpl) GetIntegrationsByChannel(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	var apiResponse web.ApiResponse
-	var crmCreateRequest qontak_web.CrmCreateRequest
 
-	helpers.ReadFromRequestBody(request.Body, &crmCreateRequest)
-	contacts, err := controller.crmService.CreateContact(request.Context(), crmCreateRequest)
+	channel := params.ByName("channel")
+	integrations, err := controller.chatService.GetIntegrationsByChannel(request.Context(), channel)
 	if err != nil {
 		json.Unmarshal([]byte(err.Error()), &myError)
 		writer.WriteHeader(myError.Code)
@@ -130,13 +72,12 @@ func (controller *CrmControllerImpl) CreateContact(writer http.ResponseWriter, r
 	} else {
 		apiResponse.Code = http.StatusOK
 		apiResponse.Status = http.StatusText(http.StatusOK)
-		apiResponse.Data = contacts
+		apiResponse.Data = integrations
 	}
 
 	logRequest.Url = request.RequestURI
 	logRequest.Header = request.Header
 	logRequest.Method = request.Method
-	logRequest.Payload = crmCreateRequest
 
 	logResponse.Header = writer.Header()
 	logResponse.Body = apiResponse
@@ -146,13 +87,10 @@ func (controller *CrmControllerImpl) CreateContact(writer http.ResponseWriter, r
 	helpers.WriteToResponseBody(writer, apiResponse)
 }
 
-func (controller *CrmControllerImpl) UpdateContact(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+func (controller *ChatControllerImpl) GetWhatsappIntegration(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	var apiResponse web.ApiResponse
-	var crmCreateRequest qontak_web.CrmCreateRequest
 
-	contactsId := params.ByName("contact_id")
-	helpers.ReadFromRequestBody(request.Body, &crmCreateRequest)
-	contacts, err := controller.crmService.UpdateContact(request.Context(), contactsId, crmCreateRequest)
+	integrations, err := controller.chatService.GetIntegrationsByChannel(request.Context(), "wa")
 	if err != nil {
 		json.Unmarshal([]byte(err.Error()), &myError)
 		writer.WriteHeader(myError.Code)
@@ -162,13 +100,12 @@ func (controller *CrmControllerImpl) UpdateContact(writer http.ResponseWriter, r
 	} else {
 		apiResponse.Code = http.StatusOK
 		apiResponse.Status = http.StatusText(http.StatusOK)
-		apiResponse.Data = contacts
+		apiResponse.Data = integrations
 	}
 
 	logRequest.Url = request.RequestURI
 	logRequest.Header = request.Header
 	logRequest.Method = request.Method
-	logRequest.Payload = crmCreateRequest
 
 	logResponse.Header = writer.Header()
 	logResponse.Body = apiResponse
@@ -178,11 +115,10 @@ func (controller *CrmControllerImpl) UpdateContact(writer http.ResponseWriter, r
 	helpers.WriteToResponseBody(writer, apiResponse)
 }
 
-func (controller *CrmControllerImpl) DeleteContact(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+func (controller *ChatControllerImpl) GetWhatsappTemplates(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	var apiResponse web.ApiResponse
 
-	contactsId := params.ByName("contact_id")
-	err := controller.crmService.DeleteContact(request.Context(), contactsId)
+	templates, err := controller.chatService.GetWhatsappTemplates(request.Context())
 	if err != nil {
 		json.Unmarshal([]byte(err.Error()), &myError)
 		writer.WriteHeader(myError.Code)
@@ -191,7 +127,67 @@ func (controller *CrmControllerImpl) DeleteContact(writer http.ResponseWriter, r
 		apiResponse.Error = myError.Error
 	} else {
 		apiResponse.Code = http.StatusOK
-		apiResponse.Status = "deleted"
+		apiResponse.Status = http.StatusText(http.StatusOK)
+		apiResponse.Data = templates
+	}
+
+	logRequest.Url = request.RequestURI
+	logRequest.Header = request.Header
+	logRequest.Method = request.Method
+
+	logResponse.Header = writer.Header()
+	logResponse.Body = apiResponse
+	logResponse.Error = myError.Error
+
+	helpers.WriteLog("info", "event", "incoming request", logRequest, logResponse, logError)
+	helpers.WriteToResponseBody(writer, apiResponse)
+}
+
+func (controller *ChatControllerImpl) GetContactList(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	var apiResponse web.ApiResponse
+
+	contactList, err := controller.chatService.GetContactList(request.Context())
+	if err != nil {
+		json.Unmarshal([]byte(err.Error()), &myError)
+		writer.WriteHeader(myError.Code)
+		apiResponse.Code = myError.Code
+		apiResponse.Status = http.StatusText(myError.Code)
+		apiResponse.Error = myError.Error
+	} else {
+		apiResponse.Code = http.StatusOK
+		apiResponse.Status = http.StatusText(http.StatusOK)
+		apiResponse.Data = contactList
+	}
+
+	logRequest.Url = request.RequestURI
+	logRequest.Header = request.Header
+	logRequest.Method = request.Method
+
+	logResponse.Header = writer.Header()
+	logResponse.Body = apiResponse
+	logResponse.Error = myError.Error
+
+	helpers.WriteLog("info", "event", "incoming request", logRequest, logResponse, logError)
+	helpers.WriteToResponseBody(writer, apiResponse)
+}
+
+func (controller *ChatControllerImpl) ValidateNumber(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	var apiResponse web.ApiResponse
+	var validateNumberRequest qontak_web.ValidateNumberRequest
+
+	helpers.ReadFromRequestBody(request.Body, &validateNumberRequest)
+
+	validated, err := controller.chatService.ValidateNumber(request.Context(), validateNumberRequest)
+	if err != nil {
+		json.Unmarshal([]byte(err.Error()), &myError)
+		writer.WriteHeader(myError.Code)
+		apiResponse.Code = myError.Code
+		apiResponse.Status = http.StatusText(myError.Code)
+		apiResponse.Error = myError.Error
+	} else {
+		apiResponse.Code = http.StatusOK
+		apiResponse.Status = http.StatusText(http.StatusOK)
+		apiResponse.Data = validated
 	}
 
 	logRequest.Url = request.RequestURI
