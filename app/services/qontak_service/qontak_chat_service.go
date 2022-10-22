@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"omclabs/go-qontak/app/models/web/qontak_web"
 	"omclabs/go-qontak/app/repositories/qontak_repository"
+	"os"
 )
 
 type ChatService interface {
@@ -13,6 +14,8 @@ type ChatService interface {
 	GetWhatsappTemplates(ctx context.Context) ([]qontak_web.WhatsappTemplates, error)
 	GetContactList(ctx context.Context) ([]qontak_web.ContactList, error)
 	ValidateNumber(ctx context.Context, request qontak_web.ValidateNumberRequest) (qontak_web.ValidateNumberResponse, error)
+	SendOtp(ctx context.Context, request qontak_web.SendOtpRequest) (qontak_web.SendMessageResponse, error)
+	SendWelcomeMessage(ctx context.Context, welcomeType string, request qontak_web.SendWelcomeMessageRequest) (qontak_web.SendMessageResponse, error)
 }
 
 type ChatServiceImpl struct {
@@ -65,6 +68,113 @@ func (service *ChatServiceImpl) GetContactList(ctx context.Context) ([]qontak_we
 
 func (service *ChatServiceImpl) ValidateNumber(ctx context.Context, request qontak_web.ValidateNumberRequest) (qontak_web.ValidateNumberResponse, error) {
 	validated, err := service.chatRepository.ValidateNumber(ctx, service.client, request)
+	if err != nil {
+		return validated, err
+	}
+
+	return validated, nil
+}
+
+func (service *ChatServiceImpl) SendOtp(ctx context.Context, request qontak_web.SendOtpRequest) (qontak_web.SendMessageResponse, error) {
+
+	sendMessage := qontak_web.SendMessageRequest{
+		ToNumber:             request.ToNumber,
+		ToName:               request.ToName,
+		MessageTemplateID:    os.Getenv("QONTAK_CHAT_OTP_TEMPLATE"),
+		ChannelIntegrationID: os.Getenv("QONTAK_CHAT_WA_INTEGRATION"),
+		Language: struct {
+			Code string "json:\"code,omitempty\""
+		}{
+			Code: "id",
+		},
+		Parameters: struct {
+			Body []struct {
+				Key       int    "json:\"key,omitempty\""
+				ValueText string "json:\"value_text,omitempty\""
+				Value     string "json:\"value,omitempty\""
+			} "json:\"body,omitempty\""
+			Buttons []struct {
+				Index string "json:\"index,omitempty\""
+				Type  string "json:\"type,omitempty\""
+				Value string "json:\"value,omitempty\""
+			} "json:\"buttons,omitempty\""
+		}{
+			Body: []struct {
+				Key       int    "json:\"key,omitempty\""
+				ValueText string "json:\"value_text,omitempty\""
+				Value     string "json:\"value,omitempty\""
+			}{
+				{
+					Key:       1,
+					Value:     "to_name",
+					ValueText: request.ToName,
+				},
+				{
+					Key:       2,
+					Value:     "otp",
+					ValueText: request.Otp,
+				},
+			},
+		},
+	}
+
+	validated, err := service.chatRepository.SendMessage(ctx, service.client, sendMessage)
+	if err != nil {
+		return validated, err
+	}
+
+	return validated, nil
+}
+
+func (service *ChatServiceImpl) SendWelcomeMessage(ctx context.Context, welcomeType string, request qontak_web.SendWelcomeMessageRequest) (qontak_web.SendMessageResponse, error) {
+	var template string
+
+	switch template {
+	case "no-store":
+		template = os.Getenv("QONTAK_CHAT_WELCOME_NO_STORE_TEMPLATE")
+	case "has-store":
+		template = os.Getenv("QONTAK_CHAT_WELCOME_HAS_STORE_TEMPLATE")
+	default:
+		template = ""
+	}
+
+	sendMessage := qontak_web.SendMessageRequest{
+		ToNumber:             request.ToNumber,
+		ToName:               request.ToName,
+		MessageTemplateID:    template,
+		ChannelIntegrationID: os.Getenv("QONTAK_CHAT_WA_INTEGRATION"),
+		Language: struct {
+			Code string "json:\"code,omitempty\""
+		}{
+			Code: "id",
+		},
+		Parameters: struct {
+			Body []struct {
+				Key       int    "json:\"key,omitempty\""
+				ValueText string "json:\"value_text,omitempty\""
+				Value     string "json:\"value,omitempty\""
+			} "json:\"body,omitempty\""
+			Buttons []struct {
+				Index string "json:\"index,omitempty\""
+				Type  string "json:\"type,omitempty\""
+				Value string "json:\"value,omitempty\""
+			} "json:\"buttons,omitempty\""
+		}{
+			Body: []struct {
+				Key       int    "json:\"key,omitempty\""
+				ValueText string "json:\"value_text,omitempty\""
+				Value     string "json:\"value,omitempty\""
+			}{
+				{
+					Key:       1,
+					Value:     "name",
+					ValueText: request.Name,
+				},
+			},
+		},
+	}
+
+	validated, err := service.chatRepository.SendMessage(ctx, service.client, sendMessage)
 	if err != nil {
 		return validated, err
 	}

@@ -17,8 +17,8 @@ type ChatDataRequest struct {
 		} `json:"pagination,omitempty"`
 	} `json:"meta,omitempty"`
 	Error struct {
-		Code     int    `json:"code,omitempty"`
-		Messages string `json:"messages,omitempty"`
+		Code     int      `json:"code,omitempty"`
+		Messages []string `json:"messages,omitempty"`
 	} `json:"error,omitempty"`
 }
 
@@ -77,4 +77,80 @@ type ValidateNumberResponse struct {
 		Status string `json:"status,omitempty"`
 		WaID   string `json:"wa_id,omitempty"`
 	} `json:"contacts,omitempty"`
+}
+
+type SendMessageRequest struct {
+	ToName               string `json:"to_name,omitempty"`
+	ToNumber             string `json:"to_number,omitempty"`
+	MessageTemplateID    string `json:"message_template_id,omitempty"`
+	ChannelIntegrationID string `json:"channel_integration_id,omitempty"`
+	Language             struct {
+		Code string `json:"code,omitempty"`
+	} `json:"language,omitempty"`
+	Parameters struct {
+		// Header struct {
+		// 	Format string `json:"format,omitempty"`
+		// 	Params []struct {
+		// 		Key   string `json:"key,omitempty"`
+		// 		Value string `json:"value,omitempty"`
+		// 	} `json:"params,omitempty"`
+		// } `json:"header,omitempty"`
+		Body []struct {
+			Key       int    `json:"key,omitempty"`
+			ValueText string `json:"value_text,omitempty"`
+			Value     string `json:"value,omitempty"`
+		} `json:"body,omitempty"`
+		Buttons []struct {
+			Index string `json:"index,omitempty"`
+			Type  string `json:"type,omitempty"`
+			Value string `json:"value,omitempty"`
+		} `json:"buttons,omitempty"`
+	} `json:"parameters,omitempty"`
+}
+
+type SendMessageResponse struct {
+	ID                   string      `json:"id,omitempty"`
+	Name                 string      `json:"name,omitempty"`
+	OrganizationID       string      `json:"organization_id,omitempty"`
+	ChannelIntegrationID string      `json:"channel_integration_id,omitempty"`
+	ContactListID        interface{} `json:"contact_list_id,omitempty"`
+	ContactID            string      `json:"contact_id,omitempty"`
+	TargetChannel        string      `json:"target_channel,omitempty"`
+	Parameters           struct {
+		Header struct {
+		} `json:"header,omitempty"`
+		Body struct {
+			Num1 string `json:"1,omitempty"`
+		} `json:"body,omitempty"`
+	} `json:"parameters,omitempty"`
+	CreatedAt          time.Time `json:"created_at,omitempty"`
+	MessageStatusCount struct {
+		Failed    int `json:"failed,omitempty"`
+		Delivered int `json:"delivered,omitempty"`
+		Read      int `json:"read,omitempty"`
+		Pending   int `json:"pending,omitempty"`
+		Sent      int `json:"sent,omitempty"`
+	} `json:"message_status_count,omitempty"`
+	MessageTemplate struct {
+		ID       string      `json:"id,omitempty"`
+		Name     string      `json:"name,omitempty"`
+		Language string      `json:"language,omitempty"`
+		Header   interface{} `json:"header,omitempty"`
+		Body     string      `json:"body,omitempty"`
+		Footer   interface{} `json:"footer,omitempty"`
+		Status   string      `json:"status,omitempty"`
+		Category string      `json:"category,omitempty"`
+	} `json:"message_template,omitempty"`
+}
+
+type SendOtpRequest struct {
+	ToName   string `json:"to_name,omitempty"`
+	ToNumber string `json:"to_number,omitempty"`
+	Otp      string `json:"otp,omitempty"`
+}
+
+type SendWelcomeMessageRequest struct {
+	ToName   string `json:"to_name,omitempty"`
+	ToNumber string `json:"to_number,omitempty"`
+	Name     string `json:"name,omitempty"`
 }

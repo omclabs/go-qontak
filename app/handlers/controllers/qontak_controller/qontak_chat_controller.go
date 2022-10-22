@@ -18,6 +18,8 @@ type ChatController interface {
 	GetWhatsappTemplates(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
 	GetContactList(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
 	ValidateNumber(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
+	SendOtp(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
+	SendWelcomeMessage(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
 }
 
 type ChatControllerImpl struct {
@@ -178,6 +180,68 @@ func (controller *ChatControllerImpl) ValidateNumber(writer http.ResponseWriter,
 	helpers.ReadFromRequestBody(request.Body, &validateNumberRequest)
 
 	validated, err := controller.chatService.ValidateNumber(request.Context(), validateNumberRequest)
+	if err != nil {
+		json.Unmarshal([]byte(err.Error()), &myError)
+		writer.WriteHeader(myError.Code)
+		apiResponse.Code = myError.Code
+		apiResponse.Status = http.StatusText(myError.Code)
+		apiResponse.Error = myError.Error
+	} else {
+		apiResponse.Code = http.StatusOK
+		apiResponse.Status = http.StatusText(http.StatusOK)
+		apiResponse.Data = validated
+	}
+
+	logRequest.Url = request.RequestURI
+	logRequest.Header = request.Header
+	logRequest.Method = request.Method
+
+	logResponse.Header = writer.Header()
+	logResponse.Body = apiResponse
+	logResponse.Error = myError.Error
+
+	helpers.WriteLog("info", "event", "incoming request", logRequest, logResponse, logError)
+	helpers.WriteToResponseBody(writer, apiResponse)
+}
+
+func (controller *ChatControllerImpl) SendOtp(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	var apiResponse web.ApiResponse
+	var otp qontak_web.SendOtpRequest
+
+	helpers.ReadFromRequestBody(request.Body, &otp)
+
+	validated, err := controller.chatService.SendOtp(request.Context(), otp)
+	if err != nil {
+		json.Unmarshal([]byte(err.Error()), &myError)
+		writer.WriteHeader(myError.Code)
+		apiResponse.Code = myError.Code
+		apiResponse.Status = http.StatusText(myError.Code)
+		apiResponse.Error = myError.Error
+	} else {
+		apiResponse.Code = http.StatusOK
+		apiResponse.Status = http.StatusText(http.StatusOK)
+		apiResponse.Data = validated
+	}
+
+	logRequest.Url = request.RequestURI
+	logRequest.Header = request.Header
+	logRequest.Method = request.Method
+
+	logResponse.Header = writer.Header()
+	logResponse.Body = apiResponse
+	logResponse.Error = myError.Error
+
+	helpers.WriteLog("info", "event", "incoming request", logRequest, logResponse, logError)
+	helpers.WriteToResponseBody(writer, apiResponse)
+}
+
+func (controller *ChatControllerImpl) SendWelcomeMessage(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	var apiResponse web.ApiResponse
+	var welcome qontak_web.SendWelcomeMessageRequest
+
+	welcomeType := params.ByName("type")
+	helpers.ReadFromRequestBody(request.Body, &welcome)
+	validated, err := controller.chatService.SendWelcomeMessage(request.Context(), welcomeType, welcome)
 	if err != nil {
 		json.Unmarshal([]byte(err.Error()), &myError)
 		writer.WriteHeader(myError.Code)

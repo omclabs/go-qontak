@@ -17,7 +17,6 @@ var logResponse web.LogResponse
 var logError web.LogError
 
 type CrmController interface {
-	GetParam(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
 	GetContact(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
 	GetContactById(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
 	CreateContact(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
@@ -33,26 +32,6 @@ func NewCrmController(crmService qontak_service.CrmService) CrmController {
 	return &CrmControllerImpl{
 		crmService: crmService,
 	}
-}
-
-func (controller *CrmControllerImpl) GetParam(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	crmParams := controller.crmService.GetParam(request.Context())
-
-	apiResponse := web.ApiResponse{
-		Code:   http.StatusOK,
-		Status: http.StatusText(http.StatusOK),
-		Data:   crmParams,
-	}
-
-	logRequest.Url = request.RequestURI
-	logRequest.Header = request.Header
-	logRequest.Method = request.Method
-
-	logResponse.Header = writer.Header()
-	logResponse.Body = apiResponse
-
-	helpers.WriteLog("info", "event", "incoming request", logRequest, logResponse, logError)
-	helpers.WriteToResponseBody(writer, apiResponse)
 }
 
 func (controller *CrmControllerImpl) GetContact(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
@@ -88,9 +67,17 @@ func (controller *CrmControllerImpl) GetContact(writer http.ResponseWriter, requ
 
 func (controller *CrmControllerImpl) GetContactById(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	var apiResponse web.ApiResponse
+	var contacts interface{}
+	var err error
 
 	contactsId := params.ByName("contact_id")
-	contacts, err := controller.crmService.GetContactById(request.Context(), contactsId)
+	if contactsId == "get-params" {
+		contacts = controller.crmService.GetParam(request.Context())
+
+	} else {
+		contacts, err = controller.crmService.GetContactById(request.Context(), contactsId)
+	}
+
 	if err != nil {
 		json.Unmarshal([]byte(err.Error()), &myError)
 		writer.WriteHeader(myError.Code)

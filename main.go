@@ -45,7 +45,6 @@ func main() {
 
 	router := httprouter.New()
 
-	router.GET("/api/v1/crm/get-params", crmController.GetParam)
 	router.GET("/api/v1/crm/contacts", crmController.GetContact)
 	router.POST("/api/v1/crm/contacts", crmController.CreateContact)
 	router.GET("/api/v1/crm/contacts/:contact_id", crmController.GetContactById)
@@ -56,6 +55,8 @@ func main() {
 	router.GET("/api/v1/omnichannel/contact-list", chatController.GetContactList)
 	router.GET("/api/v1/omnichannel/wa-templates", chatController.GetWhatsappTemplates)
 	router.POST("/api/v1/omnichannel/validate-number", chatController.ValidateNumber)
+	router.POST("/api/v1/omnichannel/send-otp", chatController.SendOtp)
+	router.POST("/api/v1/omnichannel/send-welcome/:type", chatController.SendWelcomeMessage)
 
 	// router.GET("/api/omnichannel/integrations", chatController.GetIntegrations)
 	// router.GET("/api/omnichannel/integrations/:channel", chatController.GetIntegrationsByChannel)

@@ -10,6 +10,7 @@ import (
 	"omclabs/go-qontak/app/helpers"
 	"omclabs/go-qontak/app/models/web/qontak_web"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -19,6 +20,7 @@ type ChatRepository interface {
 	GetWhatsappTemplates(ctx context.Context, client *http.Client) ([]qontak_web.WhatsappTemplates, error)
 	GetContactList(ctx context.Context, client *http.Client) ([]qontak_web.ContactList, error)
 	ValidateNumber(ctx context.Context, client *http.Client, request qontak_web.ValidateNumberRequest) (qontak_web.ValidateNumberResponse, error)
+	SendMessage(ctx context.Context, client *http.Client, request qontak_web.SendMessageRequest) (qontak_web.SendMessageResponse, error)
 }
 
 type ChatRepositoryImpl struct {
@@ -153,6 +155,31 @@ func (repository *ChatRepositoryImpl) ValidateNumber(ctx context.Context, client
 	return validated, nil
 }
 
+func (repository *ChatRepositoryImpl) SendMessage(ctx context.Context, client *http.Client, request qontak_web.SendMessageRequest) (qontak_web.SendMessageResponse, error) {
+	var validated qontak_web.SendMessageResponse
+
+	url := os.Getenv("QONTAK_CHAT_BASE_URL") + "/api/open/v1/broadcasts/whatsapp/direct"
+	method := "POST"
+	accessToken, err := getChatToken(client)
+	if err != nil {
+		return validated, err
+	}
+
+	chatDataRequest, err := sendChatDataRequest(url, method, accessToken, request, client)
+	if err != nil {
+		return validated, err
+	}
+
+	byteData, err := json.Marshal(chatDataRequest.Data)
+	if err != nil {
+		errMessage = helpers.MakeErrorMessage(500, err.Error())
+		return validated, errors.New(errMessage)
+	}
+
+	json.Unmarshal(byteData, &validated)
+	return validated, nil
+}
+
 func getChatToken(client *http.Client) (string, error) {
 	fileName := "./files/chat_auth.json"
 	var token string = ""
@@ -240,20 +267,14 @@ func sendChatDataRequest(url string, method string, token string, payload interf
 	logRequest.Header = request.Header
 	logRequest.Method = request.Method
 	logRequest.Payload = body
-
 	logResponse.Header = response.Header
 	logResponse.Body = chatDataRequest
 
 	helpers.WriteLog("info", "external", "calling external service", logRequest, logResponse, logError)
 	if response.StatusCode != 200 && response.StatusCode != 201 {
-		switch response.StatusCode {
-		case 401:
-			errMessage = helpers.MakeErrorMessage(401, chatDataRequest.Error.Messages)
-			return chatDataRequest, errors.New(errMessage)
-		default:
-			errMessage = helpers.MakeErrorMessage(response.StatusCode, chatDataRequest.Error.Messages)
-			return chatDataRequest, errors.New(errMessage)
-		}
+		join := strings.Join(chatDataRequest.Error.Messages, "")
+		errMessage = helpers.MakeErrorMessage(response.StatusCode, join)
+		return chatDataRequest, errors.New(errMessage)
 	}
 
 	return chatDataRequest, nil
