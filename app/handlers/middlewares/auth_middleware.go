@@ -31,3 +31,14 @@ package middlewares
 // 		helpers.WriteToResponseBody(writer, webResponse)
 // 	}
 // }
+
+// func AuthMiddleware(handle httprouter.Handle) httprouter.Handle {
+// 	return func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+// 		token := request.Header.Get("Authorization")[1]
+
+// 		``
+
+// 		// call registered handler
+// 		handle(writer, request, params)
+// 	}
+// }

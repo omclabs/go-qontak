@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"omclabs/go-qontak/app/handlers/controllers/auth_controller"
 	"omclabs/go-qontak/app/handlers/controllers/qontak_controller"
 	"omclabs/go-qontak/app/handlers/middlewares"
 	"omclabs/go-qontak/app/helpers"
 	"omclabs/go-qontak/app/models/web"
 	"omclabs/go-qontak/app/repositories/qontak_repository"
+	"omclabs/go-qontak/app/services/auth_service"
 	"omclabs/go-qontak/app/services/qontak_service"
 	"os"
 	"time"
@@ -43,6 +45,9 @@ func main() {
 	chatService := qontak_service.NewChatService(chatRepository, client)
 	chatController := qontak_controller.NewChatController(chatService)
 
+	jwtAuthService := auth_service.NewJwtAuthService()
+	jwtAuthController := auth_controller.NewJwtAuthController(jwtAuthService)
+
 	router := httprouter.New()
 
 	router.GET("/api/v1/crm/contacts", crmController.GetContact)
@@ -58,9 +63,7 @@ func main() {
 	router.POST("/api/v1/omnichannel/send-otp", chatController.SendOtp)
 	router.POST("/api/v1/omnichannel/send-welcome/:type", chatController.SendWelcomeMessage)
 
-	// router.GET("/api/omnichannel/integrations", chatController.GetIntegrations)
-	// router.GET("/api/omnichannel/integrations/:channel", chatController.GetIntegrationsByChannel)
-	// router.GET("/api/omnichannel/contact-list", chatController.GetContactList)
+	router.POST("/api/auth", jwtAuthController.AuthUser)
 
 	router.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic(helpers.NewNotFoundError())
